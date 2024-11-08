@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "voice-memo"
+version = "0.1.0"
+description = ""
+authors = ["kazuaki-ito"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115.4"
+uvicorn = "^0.32.0"
+line-bot-sdk = "^3.14.1"
+openai = "0.28"
+requests = "^2.32.3"
+pydub = "^0.25.1"
+python-dotenv = "^1.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
