@@ -19,3 +19,6 @@ python-dotenv = "^1.0.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+start = "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
