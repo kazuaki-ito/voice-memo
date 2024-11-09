@@ -5,8 +5,8 @@ set -o errexit
 PERSISTENT_DIR="/var/data"
 
 # プロジェクト内のディレクトリ
-SQLITE_DIR="/app/db"
-RECORDINGS_DIR="/app/recordings"
+SQLITE_DIR="/db"
+RECORDINGS_DIR="/recordings"
 
 # 永続ディスク上にディレクトリが存在しない場合は作成
 mkdir -p "$PERSISTENT_DIR/db"
