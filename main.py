@@ -43,6 +43,8 @@ WHISPER_API_KEY = os.getenv("WHISPER_API_KEY")
 CHATGPT_API_URL = "https://api.openai.com/v1/chat/completions"
 CHATGPT_API_KEY = os.getenv("CHATGPT_API_KEY")
 
+RECORDING_DIR = os.getenv("RECORDING_DIR")
+
 USERNAME = "carebank"
 PASSWORD = "honeycome"
 
@@ -101,7 +103,7 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
 
         # 音声メッセージの取得
         message_content = line_bot_api.get_message_content(event.message.id)
-        audio_path = f"recordings/{event.message.id}.m4a"
+        audio_path = f"{event.message.id}.m4a"
         with open(audio_path, "wb") as f:
             for chunk in message_content.iter_content():
                 f.write(chunk)
@@ -138,7 +140,7 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=corrected_text))
 
 # recordings ディレクトリを静的ファイルとして公開
-app.mount("/recordings", StaticFiles(directory="recordings"), name="recordings")
+app.mount("/recordings", StaticFiles(directory=RECORDING_DIR), name="recordings")
 
 # Jinja2 テンプレートの設定
 templates = Jinja2Templates(directory="templates")
