@@ -75,7 +75,7 @@
             <tbody>
                 {% for recording in recordings %}
                 <tr>
-                    <td>{{ recording.line_user_id }}</td>
+                    <td>{{ recording.display_name }}</td>
                     <td>
                         <audio controls>
                             <source src="/{{ recording.filename }}" type="audio/mpeg">

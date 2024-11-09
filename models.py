@@ -8,6 +8,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     line_user_id = Column(String, unique=True, index=True)
+    display_name = Column(String)
     recordings = relationship("Recording", back_populates="user")
 
 class Recording(Base):

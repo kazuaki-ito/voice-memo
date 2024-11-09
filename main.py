@@ -14,6 +14,11 @@ from models import User, Recording
 from contextlib import contextmanager
 from fastapi.staticfiles import StaticFiles
 import secrets
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -72,15 +77,24 @@ async def callback(request: Request):
 def handle_audio_message(event, db: Session = Depends(get_db)):
     line_user_id = event.source.user_id
 
+    profile = line_bot_api.get_profile(line_user_id)
+    logger.info(f"取得したユーザープロフィール: {profile}")
+    display_name = profile.display_name
+    logger.info(f"名前: {display_name}")
+
+
     # データベースセッションを明示的に取得
     with get_db_context() as db:
         # ユーザーがデータベースに存在しなければ作成
         user = db.query(User).filter(User.line_user_id == line_user_id).first()
         if not user:
-            user = User(line_user_id=line_user_id)
+            user = User(line_user_id=line_user_id, display_name=display_name)
             db.add(user)
             db.commit()
             db.refresh(user)
+        else:
+            user.display_name = display_name
+        db.commit()
 
         # 音声メッセージの取得
         message_content = line_bot_api.get_message_content(event.message.id)
@@ -130,7 +144,7 @@ templates = Jinja2Templates(directory="templates")
 async def show_recordings(request: Request, db: Session = Depends(get_db), username: str = Depends(authenticate)):
     # データベースからユーザー名、ファイル名、文字起こしを取得
     results = (
-        db.query(User.line_user_id, Recording.filename, Recording.transcription)
+        db.query(User.line_user_id, User.display_name, Recording.filename, Recording.transcription)
         .join(Recording, User.id == Recording.user_id)
         .all()
     )
