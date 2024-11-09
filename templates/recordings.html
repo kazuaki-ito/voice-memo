@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>録音一覧</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: auto;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        td {
+            vertical-align: top;
+        }
+        .transcription {
+            max-width: 600px; /* 固定幅 */
+            min-width: 600px; /* 固定幅 */
+            word-wrap: break-word; /* 折り返し */
+            white-space: pre-wrap; /* 改行を保持 */
+        }
+    </style>
+    <script>
+    function copyToClipboard(elementId) {
+        var text = document.getElementById(elementId).innerText;
+        navigator.clipboard.writeText(text).then(function() {
+            alert('コピーしました: ' + text);
+        }, function(err) {
+            alert('コピーに失敗しました: ' + err);
+        });
+    }
+    </script>
+</head>
+<body>
+    <h1>録音一覧</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ユーザー名</th>
+                <th>音声ファイル</th>
+                <th>文字データ</th>
+                 <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for recording in recordings %}
+            <tr>
+                <td>{{ recording.line_user_id }}</td>
+                <td>
+                    <audio controls>
+                        <source src="/{{ recording.filename }}" type="audio/mpeg">
+                        ブラウザがaudio要素をサポートしていません。
+                    </audio>
+                </td>
+                <td id="transcription-{{ loop.index }}" class="transcription">{{ recording.transcription }}</td>
+                <td nowrap="nowrap"><button onclick="copyToClipboard('transcription-{{ loop.index }}')">コピー</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
