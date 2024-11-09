@@ -103,7 +103,8 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
 
         # 音声メッセージの取得
         message_content = line_bot_api.get_message_content(event.message.id)
-        audio_path = f"{event.message.id}.m4a"
+        audio_file = f"{event.message.id}.m4a"
+        audio_path = f"{RECORDING_DIR}/{audio_file}"
         with open(audio_path, "wb") as f:
             for chunk in message_content.iter_content():
                 f.write(chunk)
@@ -132,12 +133,20 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
         corrected_text = response.json()["choices"][0]["message"]["content"]
 
         # データベースに録音と文字起こしを保存
-        recording = Recording(user_id=user.id, filename=audio_path, transcription=corrected_text)
+        recording = Recording(user_id=user.id, filename=audio_file, transcription=corrected_text)
         db.add(recording)
         db.commit()
 
         # ユーザーに返信
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=corrected_text))
+
+if RECORDING_DIR:
+    # ディレクトリが存在しない場合は作成
+    if not os.path.exists(RECORDING_DIR):
+        os.makedirs(RECORDING_DIR, exist_ok=True)
+        print(f"ディレクトリ '{RECORDING_DIR}' を作成しました。")
+    else:
+        print(f"ディレクトリ '{RECORDING_DIR}' は既に存在します。")
 
 # recordings ディレクトリを静的ファイルとして公開
 app.mount("/recordings", StaticFiles(directory=RECORDING_DIR), name="recordings")
