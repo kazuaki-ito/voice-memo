@@ -8,8 +8,8 @@ def create_symlinks():
         persistent_recordings_path = '/var/data/recordings'
 
         # アプリケーション内のシンボリックリンクのパス
-        app_db_path = '/app/db'
-        app_recordings_path = '/app/recordings'
+        app_db_path = '/db'
+        app_recordings_path = '/recordings'
 
         # 永続ストレージ上のディレクトリが存在しない場合は作成
         os.makedirs(persistent_db_path, exist_ok=True)
