@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from fastapi.staticfiles import StaticFiles
 import secrets
 import logging
+from symlink_utils import create_symlinks
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,6 +26,10 @@ Base.metadata.create_all(bind=engine)
 load_dotenv()
 
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_event():
+    create_symlinks()
 
 # LINE API設定
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
