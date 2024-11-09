@@ -15,7 +15,6 @@ from contextlib import contextmanager
 from fastapi.staticfiles import StaticFiles
 import secrets
 import logging
-from symlink_utils import create_symlinks
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
