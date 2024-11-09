@@ -78,9 +78,7 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
     line_user_id = event.source.user_id
 
     profile = line_bot_api.get_profile(line_user_id)
-    logger.info(f"取得したユーザープロフィール: {profile}")
     display_name = profile.display_name
-    logger.info(f"名前: {display_name}")
 
 
     # データベースセッションを明示的に取得
