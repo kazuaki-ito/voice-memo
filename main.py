@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, AudioMessage, TextSendMessage
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from database import Base, engine, get_db, SessionLocal
 from models import User, Recording
@@ -150,6 +151,7 @@ async def show_recordings(request: Request, db: Session = Depends(get_db), usern
     results = (
         db.query(User.line_user_id, User.display_name, Recording.filename, Recording.transcription)
         .join(Recording, User.id == Recording.user_id)
+        .order_by(desc(Recording.id))  # ここで降順ソートを指定
         .all()
     )
     # テンプレートにデータを渡して表示
