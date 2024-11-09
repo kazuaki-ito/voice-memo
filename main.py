@@ -27,9 +27,9 @@ load_dotenv()
 
 app = FastAPI()
 
-@app.on_event("startup")
-async def startup_event():
-    create_symlinks()
+#@app.on_event("startup")
+#async def startup_event():
+#    create_symlinks()
 
 # LINE API設定
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
