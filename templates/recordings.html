@@ -102,7 +102,7 @@
                     <td id="transcription-{{ loop.index }}" class="transcription">{{ recording.transcription }}</td>
                     <td nowrap="nowrap">
                         <button onclick="copyToClipboard('transcription-{{ loop.index }}')">コピー</button><br/>
-                        <button onclick="createAssessment('transcription-{{ loop.index }}')">アセスメント作成</button>
+                        <button onclick="createAssessment('{{ recording.id }}')">アセスメント作成</button>
 </td>
                     </td>
                 </tr>
