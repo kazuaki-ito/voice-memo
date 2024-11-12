@@ -66,17 +66,19 @@
         <table>
             <thead>
                 <tr>
-                    <th>ユーザー名</th>
-                    <th>音声ファイル</th>
-                    <th>文字データ</th>
-                    <th>操作</th>
+                    <th nowrap="nowrap">ユーザー名</th>
+                    <th nowrap="nowrap">録音日時</th>
+                    <th nowrap="nowrap">音声ファイル</th>
+                    <th nowrap="nowrap">文字データ</th>
+                    <th nowrap="nowrap">操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for recording in recordings %}
                 <tr>
-                    <td>{{ recording.display_name }}</td>
-                    <td>
+                    <td nowrap="nowrap">{{ recording.display_name }}</td>
+                    <td nowrap="nowrap">{{ recording.recorded_at | datetime }}</td>
+                    <td nowrap="nowrap">
                         <audio controls>
                             <source src="/recordings/{{ recording.filename }}" type="audio/mpeg">
                             ブラウザがaudio要素をサポートしていません。
@@ -85,6 +87,9 @@
                     <td id="transcription-{{ loop.index }}" class="transcription">{{ recording.transcription }}</td>
                     <td nowrap="nowrap">
                         <button onclick="copyToClipboard('transcription-{{ loop.index }}')">コピー</button><br/>
+                        <a href="/generate_facing_sheet/{{ recording.id }}" target="_blank">
+                            <button>フェースシート作成</button>
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}

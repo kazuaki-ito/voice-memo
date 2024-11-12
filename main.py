@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import os
+import re
 import requests
+import json
 from dotenv import load_dotenv
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -14,6 +16,7 @@ from database import Base, engine, get_db, SessionLocal
 from models import User, Recording
 from contextlib import contextmanager
 from fastapi.staticfiles import StaticFiles
+from datetime import datetime
 import secrets
 import logging
 
@@ -51,6 +54,7 @@ PASSWORD = "honeycome"
 # データベースセッションを取得するためのコンテキストマネージャ
 @contextmanager
 def get_db_context():
+
     db = SessionLocal()
     try:
         yield db
@@ -151,14 +155,21 @@ if RECORDING_DIR:
 # recordings ディレクトリを静的ファイルとして公開
 app.mount("/recordings", StaticFiles(directory=RECORDING_DIR), name="recordings")
 
-# Jinja2 テンプレートの設定
+# 日付フォーマット用のカスタムフィルタを定義
+def format_datetime(value, format="%Y-%m-%d %H:%M"):
+    if isinstance(value, datetime):
+        return value.strftime(format)
+    return ""
+
+# フィルタをテンプレートに追加
 templates = Jinja2Templates(directory="templates")
+templates.env.filters["datetime"] = format_datetime
 
 @app.get("/list/")
 async def show_recordings(request: Request, db: Session = Depends(get_db), username: str = Depends(authenticate)):
     # データベースからユーザー名、ファイル名、文字起こしを取得
     results = (
-        db.query(User.line_user_id, User.display_name, Recording.filename, Recording.transcription)
+        db.query(Recording.id, User.line_user_id, User.display_name, Recording.filename, Recording.transcription, Recording.recorded_at)
         .join(Recording, User.id == Recording.user_id)
         .order_by(desc(Recording.id))  # ここで降順ソートを指定
         .all()
@@ -166,3 +177,61 @@ async def show_recordings(request: Request, db: Session = Depends(get_db), usern
     # テンプレートにデータを渡して表示
     return templates.TemplateResponse("recordings.html", {"request": request, "recordings": results})
 
+
+@app.get("/generate_facing_sheet/{recording_id}", response_class=HTMLResponse)
+async def generate_facing_sheet(request: Request, recording_id: int, db: Session = Depends(get_db)):
+    # 録音データを取得
+    recording = db.query(Recording).filter(Recording.id == recording_id).first()
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    # ChatGPTにフェースシート作成依頼（フォーマットを明確に指定）
+    headers = {"Authorization": f"Bearer {CHATGPT_API_KEY}", "Content-Type": "application/json"}
+    data = {
+        "model": "gpt-4-turbo",
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    f"以下の内容に基づいて、介護のフェースシートをJSON形式で出力してください。"
+                    f"以下の形式に厳密に従って出力してください。テキストではなく、必ず有効なJSONオブジェクトとして出力してください。\n\n"
+                    f"次のフォーマットで出力し、長文の説明や生活の経緯は読みやすいように段落ごとに適切に改行してください：\n"
+                    f"各項目は必ず含めてください。\n\n"
+                    f"出力例:\n"
+                    f"{{\n"
+                    f'"利用者名": "○○",\n'
+                    f'"年齢": "○○",\n'
+                    f'"要介護度": "○○",\n'
+                    f'"身障等級": "○○",\n'
+                    f'"認知症": "○○",\n'
+                    f'"相談内容-本人": "○○",\n'
+                    f'"相談内容-ご家族": "○○",\n'
+                    f'"これまでの生活の経緯": "○○"\n'
+                    f"}}\n\n"
+                    f"テキスト：\n{recording.transcription}"
+                )
+            }
+        ]
+    }
+    response = requests.post(CHATGPT_API_URL, headers=headers, json=data)
+    if response.status_code != 200:
+        return HTMLResponse(content="<h1>フェースシート作成に失敗しました。</h1>", status_code=500)
+
+    # ChatGPTの応答を辞書としてパース
+    facing_sheet_content = response.json()["choices"][0]["message"]["content"]
+    logger.info(facing_sheet_content)
+    json_match = re.search(r'```json\n(.*)\n```', facing_sheet_content, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1)  # JSON部分のみを抽出
+        try:
+            facing_sheet_dict = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            # JSONパースエラー時のデバッグ出力
+            print("Error: JSONDecodeError - JSONのパースに失敗しました")
+            return HTMLResponse(content=f"<h1>フェースシートのデータ形式が不正です。</h1><pre>{facing_sheet_content}</pre>",
+                                status_code=500)
+    else:
+        # JSON部分が見つからなかった場合
+        return HTMLResponse(content="<h1>フェースシートのデータ形式が不正です。</h1>", status_code=500)
+    # テンプレートを利用してフェースシートを表示
+    return templates.TemplateResponse("facing_sheet.html", {"request": request, "facing_sheet": facing_sheet_dict})

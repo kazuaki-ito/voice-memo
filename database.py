@@ -1,9 +1,19 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
 import os
 
 database_dir = os.getenv("DATABASE_DIR", './db')
+
+if database_dir:
+    # ディレクトリが存在しない場合は作成
+    if not os.path.exists(database_dir):
+        os.makedirs(database_dir, exist_ok=True)
+        print(f"ディレクトリ '{database_dir}' を作成しました。")
+    else:
+        print(f"ディレクトリ '{database_dir}' は既に存在します。")
+
 
 database_filename = 'test.db'
 

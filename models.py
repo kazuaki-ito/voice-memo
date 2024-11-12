@@ -1,6 +1,7 @@
 # models.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 from database import Base
 
@@ -18,4 +19,5 @@ class Recording(Base):
     filename = Column(String, unique=True)
     transcription = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now())  # 録音日時を追加
     user = relationship("User", back_populates="recordings")
