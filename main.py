@@ -123,7 +123,7 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
         # ChatGPTで誤字脱字補正
         headers = {"Authorization": f"Bearer {CHATGPT_API_KEY}", "Content-Type": "application/json"}
         data = {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4-turbo",
             "messages": [{"role": "user", "content": f"以下のテキストの誤字脱字を修正してください：'{transcribed_text}'"}]
         }
         response = requests.post(CHATGPT_API_URL, headers=headers, json=data)
@@ -167,17 +167,21 @@ async def show_recordings(request: Request, db: Session = Depends(get_db), usern
     return templates.TemplateResponse("recordings.html", {"request": request, "recordings": results})
 
 
-@app.post("/create_assessment")
-async def create_assessment(request: Request):
-    data = await request.json()
-    transcription = data.get("transcription")
+@app.post("/create_assessment/{recording_id}")
+async def create_assessment(recording_id: int, db: Session = Depends(get_db)):
+    # 録音IDに基づいてデータベースから文字データを取得
+    recording = db.query(Recording).filter(Recording.id == recording_id).first()
+    if not recording:
+        raise HTTPException(status_code=404, detail="録音が見つかりません。")
+
+    transcription = recording.transcription
     if not transcription:
         raise HTTPException(status_code=400, detail="文字データがありません。")
 
     # ChatGPT APIを使用してアセスメントを作成
     headers = {"Authorization": f"Bearer {CHATGPT_API_KEY}", "Content-Type": "application/json"}
     data = {
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4-turbo",
         "messages": [{"role": "user", "content": f"以下の内容に基づいて介護アセスメントを作成してください：'{transcription}'"}]
     }
     response = requests.post(CHATGPT_API_URL, headers=headers, json=data)
@@ -187,4 +191,5 @@ async def create_assessment(request: Request):
     assessment_text = response.json()["choices"][0]["message"]["content"]
 
     # アセスメントをテンプレートに表示するURLを返す
-    return JSONResponse(content={"url": f"/assessment?text={assessment_text}"})
+    return JSONResponse(content={"url": f"/assessment/{recording_id}"})
+

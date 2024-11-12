@@ -58,14 +58,9 @@
                 alert('コピーに失敗しました: ' + err);
             });
         }
-        function createAssessment(elementId) {
-            var text = document.getElementById(elementId).innerText;
-            fetch("/create_assessment", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ transcription: text })
+        function createAssessment(recordingId) {
+            fetch(`/create_assessment/${recordingId}`, {
+                method: "POST"
             })
             .then(response => response.json())
             .then(data => {
@@ -107,7 +102,7 @@
                     <td id="transcription-{{ loop.index }}" class="transcription">{{ recording.transcription }}</td>
                     <td nowrap="nowrap">
                         <button onclick="copyToClipboard('transcription-{{ loop.index }}')">コピー</button><br/>
-                        <!--<button onclick="createAssessment('transcription-{{ loop.index }}')">アセスメント作成</button>-->
+                        <button onclick="createAssessment('transcription-{{ loop.index }}')">アセスメント作成</button>
 </td>
                     </td>
                 </tr>
