@@ -58,27 +58,28 @@
                 alert('コピーに失敗しました: ' + err);
             });
         }
-            function createAssessment(transcription) {
-        fetch("/create_assessment", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ transcription: transcription })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.url) {
-                window.location.href = data.url;
-            } else {
-                alert("アセスメントの作成に失敗しました。");
-            }
-        })
-        .catch(error => {
-            console.error("Error creating assessment:", error);
-            alert("エラーが発生しました。");
-        });
-    }
+        function createAssessment(elementId) {
+            var text = document.getElementById(elementId).innerText;
+            fetch("/create_assessment", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ transcription: text })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    alert("アセスメントの作成に失敗しました。");
+                }
+            })
+            .catch(error => {
+                console.error("Error creating assessment:", error);
+                alert("エラーが発生しました。");
+            });
+        }
     </script>
 </head>
 <body>
@@ -105,8 +106,8 @@
                     </td>
                     <td id="transcription-{{ loop.index }}" class="transcription">{{ recording.transcription }}</td>
                     <td nowrap="nowrap">
-                        <button onclick="copyToClipboard('transcription-{{ loop.index }}')">コピー</button>
-                        <button onclick="createAssessment('{{ recording.transcription }}')">アセスメント作成</button>
+                        <button onclick="copyToClipboard('transcription-{{ loop.index }}')">コピー</button><br/>
+                        <button onclick="createAssessment('transcription-{{ loop.index }}')">アセスメント作成</button>
 </td>
                     </td>
                 </tr>
