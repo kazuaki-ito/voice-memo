@@ -165,3 +165,26 @@ async def show_recordings(request: Request, db: Session = Depends(get_db), usern
     )
     # テンプレートにデータを渡して表示
     return templates.TemplateResponse("recordings.html", {"request": request, "recordings": results})
+
+
+@app.post("/create_assessment")
+async def create_assessment(request: Request):
+    data = await request.json()
+    transcription = data.get("transcription")
+    if not transcription:
+        raise HTTPException(status_code=400, detail="文字データがありません。")
+
+    # ChatGPT APIを使用してアセスメントを作成
+    headers = {"Authorization": f"Bearer {CHATGPT_API_KEY}", "Content-Type": "application/json"}
+    data = {
+        "model": "gpt-3.5-turbo",
+        "messages": [{"role": "user", "content": f"以下の内容に基づいて介護アセスメントを作成してください：'{transcription}'"}]
+    }
+    response = requests.post(CHATGPT_API_URL, headers=headers, json=data)
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="アセスメント作成に失敗しました。")
+
+    assessment_text = response.json()["choices"][0]["message"]["content"]
+
+    # アセスメントをテンプレートに表示するURLを返す
+    return JSONResponse(content={"url": f"/assessment?text={assessment_text}"})
