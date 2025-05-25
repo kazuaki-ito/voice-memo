@@ -111,7 +111,7 @@ async def upload_audio(request: Request, file: UploadFile = File(...), db: Sessi
     # ChatGPT API
     headers = {"Authorization": f"Bearer {CHATGPT_API_KEY}", "Content-Type": "application/json"}
     prompt = f"""
-あなたは共感的な心理カウンセラーです。
+あなたは共感的なDNAセラピストです。
 以下の音声文字起こしテキストに誤字脱字がある場合は修正し、
 ユーザーが話した内容（修正済み）をそのまま一文にまとめた上で、
 心理的に寄り添う応答をしてください。
