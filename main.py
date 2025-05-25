@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, UploadFile, File
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -7,9 +7,6 @@ import re
 import requests
 import json
 from dotenv import load_dotenv
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, AudioMessage, TextSendMessage
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from database import Base, engine, get_db, SessionLocal
@@ -33,10 +30,6 @@ app = FastAPI()
 #@app.on_event("startup")
 #async def startup_event():
 #    create_symlinks()
-
-# LINE API設定
-line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
-handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
 # Whisper API設定
 WHISPER_API_URL = "https://api.openai.com/v1/audio/transcriptions"
@@ -74,76 +67,6 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
         )
     return credentials.username
 
-@app.post("/callback")
-async def callback(request: Request):
-    signature = request.headers.get("X-Line-Signature", "")
-    body = await request.body()
-    try:
-        handler.handle(body.decode("utf-8"), signature)
-    except InvalidSignatureError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
-    return JSONResponse(content={"message": "OK"})
-
-@handler.add(MessageEvent, message=AudioMessage)
-def handle_audio_message(event, db: Session = Depends(get_db)):
-    line_user_id = event.source.user_id
-
-    profile = line_bot_api.get_profile(line_user_id)
-    display_name = profile.display_name
-
-
-    # データベースセッションを明示的に取得
-    with get_db_context() as db:
-        # ユーザーがデータベースに存在しなければ作成
-        user = db.query(User).filter(User.line_user_id == line_user_id).first()
-        if not user:
-            user = User(line_user_id=line_user_id, display_name=display_name)
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        else:
-            user.display_name = display_name
-        db.commit()
-
-        # 音声メッセージの取得
-        message_content = line_bot_api.get_message_content(event.message.id)
-        audio_file = f"{event.message.id}.m4a"
-        audio_path = f"{RECORDING_DIR}/{audio_file}"
-        with open(audio_path, "wb") as f:
-            for chunk in message_content.iter_content():
-                f.write(chunk)
-
-        # Whisper APIで文字起こし
-        with open(audio_path, "rb") as f:
-            headers = {"Authorization": f"Bearer {WHISPER_API_KEY}"}
-            files = {"file": (audio_path, f, "audio/m4a")}
-            data = {"model": "whisper-1"}
-            response = requests.post(WHISPER_API_URL, headers=headers, files=files, data=data)
-            if response.status_code != 200:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="文字起こしに失敗しました。"))
-                return
-            transcribed_text = response.json().get("text", "")
-
-        # ChatGPTで誤字脱字補正
-        headers = {"Authorization": f"Bearer {CHATGPT_API_KEY}", "Content-Type": "application/json"}
-        data = {
-            "model": "gpt-4-turbo",
-            "messages": [{"role": "user", "content": f"以下のテキストの誤字脱字を修正してください：'{transcribed_text}'"}]
-        }
-        response = requests.post(CHATGPT_API_URL, headers=headers, json=data)
-        if response.status_code != 200:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="テキストの補正に失敗しました。"))
-            return
-        corrected_text = response.json()["choices"][0]["message"]["content"]
-
-        # データベースに録音と文字起こしを保存
-        recording = Recording(user_id=user.id, filename=audio_file, transcription=corrected_text)
-        db.add(recording)
-        db.commit()
-
-        # ユーザーに返信
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=corrected_text))
-
 if RECORDING_DIR:
     # ディレクトリが存在しない場合は作成
     if not os.path.exists(RECORDING_DIR):
@@ -164,6 +87,86 @@ def format_datetime(value, format="%Y-%m-%d %H:%M"):
 # フィルタをテンプレートに追加
 templates = Jinja2Templates(directory="templates")
 templates.env.filters["datetime"] = format_datetime
+
+# 音声アップロード（Web）
+@app.post("/upload")
+async def upload_audio(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+    filepath = os.path.join(RECORDING_DIR, filename)
+
+    with open(filepath, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    # Whisper API
+    with open(filepath, "rb") as f:
+        headers = {"Authorization": f"Bearer {WHISPER_API_KEY}"}
+        files = {"file": (filename, f, file.content_type)}
+        data = {"model": "whisper-1"}
+        response = requests.post(WHISPER_API_URL, headers=headers, files=files, data=data)
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail="文字起こし失敗")
+        transcribed_text = response.json().get("text", "")
+
+    # ChatGPT API
+    headers = {"Authorization": f"Bearer {CHATGPT_API_KEY}", "Content-Type": "application/json"}
+    prompt = f"""
+あなたは共感的な心理カウンセラーです。
+以下の音声文字起こしテキストに誤字脱字がある場合は修正し、
+ユーザーが話した内容（修正済み）をそのまま一文にまとめた上で、
+心理的に寄り添う応答をしてください。
+
+出力形式は以下のJSON形式で、説明は不要です：
+{{
+  \"user_text\": \"修正済みの発話\",
+  \"reply\": \"心理カウンセラーとしての優しい応答\"
+}}
+
+文字起こし：
+{transcribed_text}
+"""
+
+    data = {
+        "model": "gpt-4-turbo",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    response = requests.post(CHATGPT_API_URL, headers=headers, json=data)
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="補正失敗")
+
+    # JSONとして解析（ChatGPTの出力がJSON形式であることが前提）
+    content = response.json()["choices"][0]["message"]["content"]
+    try:
+        parsed = json.loads(content)
+        user_text = parsed.get("user_text", "")
+        reply = parsed.get("reply", "")
+    except json.JSONDecodeError:
+        user_text = transcribed_text
+        reply = content  # fallbackとして全文表示
+
+    # DB保存
+    user = db.query(User).filter_by(line_user_id="webuser").first()
+    if not user:
+        user = User(line_user_id="webuser", display_name="Web利用者")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    recording = Recording(user_id=user.id, filename=filename, transcription=user_text + "\n" + reply)
+    db.add(recording)
+    db.commit()
+
+    return JSONResponse(content={
+        "user_text": user_text,
+        "reply": reply
+    })
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_ui(request: Request):
+    return templates.TemplateResponse("chat.html", {"request": request})
 
 @app.get("/list/")
 async def show_recordings(request: Request, db: Session = Depends(get_db), username: str = Depends(authenticate)):
