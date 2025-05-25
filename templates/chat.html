@@ -155,10 +155,22 @@
 
             const utterance = new SpeechSynthesisUtterance(reply);
             utterance.lang = "ja-JP";
-            utterance.rate = 1.0;
-            utterance.pitch = 1.2;
+            utterance.rate = 0.95;      // ややゆっくり
+            utterance.pitch = 1.1;      // 柔らかく自然に
             utterance.volume = 1.0;
-            speechSynthesis.speak(utterance);
+
+            // 高品質な日本語音声を優先して選択（ChromeならGoogle音声）
+            const voices = speechSynthesis.getVoices();
+            utterance.voice = voices.find(v => v.lang === 'ja-JP' && v.name.includes('Google'))
+                            || voices.find(v => v.lang === 'ja-JP');
+
+            // 声のロードが遅延する場合にも対応
+            if (voices.length === 0) {
+              speechSynthesis.onvoiceschanged = () => speechSynthesis.speak(utterance);
+            } else {
+              speechSynthesis.cancel();  // 前の発話をクリア
+              speechSynthesis.speak(utterance);
+            }
           } catch (err) {
             const errorMsg = document.createElement("div");
             errorMsg.className = "message ai";
