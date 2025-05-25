@@ -87,6 +87,9 @@
 
           const utterance = new SpeechSynthesisUtterance(reply);
           utterance.lang = "ja-JP";
+          utterance.rate = 1.0;
+          utterance.pitch = 1.2;
+          utterance.volume = 1.0;
           speechSynthesis.speak(utterance);
         } catch (err) {
           const errorMsg = document.createElement("div");
