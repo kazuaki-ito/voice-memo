@@ -299,8 +299,7 @@ async def generate_batch_support_log(
     db: Session = Depends(get_db),
     username: str = Depends(authenticate)
 ):
-    recordings = db.query(Recording).filter(Recording.id.in_(recording_ids)).order_by(asc(Recording.recorded_at))
-    .all()
+    recordings = db.query(Recording).filter(Recording.id.in_(recording_ids)).order_by(asc(Recording.recorded_at)).all()
     # HTMLやPDFで整形して出力する処理へ
     return templates.TemplateResponse("support_log_batch.html", {
         "request": request,
