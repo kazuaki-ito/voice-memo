@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, Query, Form
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, AudioMessage, TextSendMessage
-from sqlalchemy import desc
+from sqlalchemy import desc, asc
 from sqlalchemy.orm import Session
 from database import Base, engine, get_db, SessionLocal
 from models import User, Recording
@@ -19,6 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import secrets
 import logging
+from typing import Optional, List
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -166,16 +168,31 @@ templates = Jinja2Templates(directory="templates")
 templates.env.filters["datetime"] = format_datetime
 
 @app.get("/list/")
-async def show_recordings(request: Request, db: Session = Depends(get_db), username: str = Depends(authenticate)):
-    # データベースからユーザー名、ファイル名、文字起こしを取得
-    results = (
+async def show_recordings(
+    request: Request,
+    db: Session = Depends(get_db),
+    username: str = Depends(authenticate),
+    user_id: Optional[str] = Query(None)  # ← 追加
+):
+    query = (
         db.query(Recording.id, User.line_user_id, User.display_name, Recording.filename, Recording.transcription, Recording.recorded_at)
         .join(Recording, User.id == Recording.user_id)
-        .order_by(desc(Recording.id))  # ここで降順ソートを指定
-        .all()
     )
-    # テンプレートにデータを渡して表示
-    return templates.TemplateResponse("recordings.html", {"request": request, "recordings": results})
+    
+    if user_id:
+        query = query.filter(User.line_user_id == user_id)
+
+    results = query.order_by(desc(Recording.id)).all()
+
+    # ユーザー一覧を取得してフィルタ用に表示
+    users = db.query(User.line_user_id, User.display_name).distinct().all()
+
+    return templates.TemplateResponse("recordings.html", {
+        "request": request,
+        "recordings": results,
+        "users": users,
+        "selected_user_id": user_id
+    })
 
 
 @app.get("/generate_facing_sheet/{recording_id}", response_class=HTMLResponse)
@@ -235,3 +252,59 @@ async def generate_facing_sheet(request: Request, recording_id: int, db: Session
         return HTMLResponse(content="<h1>フェースシートのデータ形式が不正です。</h1>", status_code=500)
     # テンプレートを利用してフェースシートを表示
     return templates.TemplateResponse("facing_sheet.html", {"request": request, "facing_sheet": facing_sheet_dict})
+
+@app.get("/support_log/{recording_id}", response_class=HTMLResponse)
+async def create_support_log_form(
+    request: Request,
+    recording_id: int,
+    db: Session = Depends(get_db),
+    username: str = Depends(authenticate)
+):
+    recording = db.query(Recording).filter(Recording.id == recording_id).first()
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    return templates.TemplateResponse("support_log_form.html", {
+        "request": request,
+        "recording": recording
+    })
+
+@app.post("/support_log/{recording_id}")
+async def submit_support_log(
+    request: Request,
+    recording_id: int,
+    user_name: str = Form(...),
+    author_name: str = Form(...),
+    db: Session = Depends(get_db),
+    username: str = Depends(authenticate)
+):
+    recording = db.query(Recording).filter(Recording.id == recording_id).first()
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    # 入力データと録音情報を組み合わせてPDF生成・保存などが可能
+    print(f"支援経過作成：{user_name} / {author_name}")
+    print(f"録音日：{recording.recorded_at}")
+    print(f"内容：{recording.transcription}")
+
+    # 今回は画面遷移だけ
+    return RedirectResponse(url="/list/", status_code=302)
+
+@app.post("/support_log_batch", response_class=HTMLResponse)
+async def generate_batch_support_log(
+    request: Request,
+    recording_ids: List[int] = Form(...),
+    user_name: str = Form(...),
+    author_name: str = Form(...),
+    db: Session = Depends(get_db),
+    username: str = Depends(authenticate)
+):
+    recordings = db.query(Recording).filter(Recording.id.in_(recording_ids)).order_by(asc(Recording.recorded_at))
+    .all()
+    # HTMLやPDFで整形して出力する処理へ
+    return templates.TemplateResponse("support_log_batch.html", {
+        "request": request,
+        "user_name": user_name,
+        "author_name": author_name,
+        "recordings": recordings,
+    })

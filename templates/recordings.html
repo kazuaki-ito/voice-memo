@@ -62,39 +62,53 @@
 </head>
 <body>
     <h1>録音一覧</h1>
+    <form method="get" action="/list/">
+        <label for="user">ユーザーで絞り込み：</label>
+        <select name="user_id" id="user" onchange="this.form.submit()">
+            <option value="">すべて</option>
+            {% for user_id, display_name in users %}
+            <option value="{{ user_id }}" {% if selected_user_id == user_id %}selected{% endif %}>{{ display_name }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
     <div class="table-container">
-        <table>
-            <thead>
+        <form method="post" action="/support_log_batch">
+            <label>利用者名：</label>
+            <input type="text" name="user_name" required>
+            <label>作成者名：</label>
+            <input type="text" name="author_name" required>
+            <button type="submit">支援経過をまとめて作成</button>
+            対象を選択して「支援経過をまとめて作成」ボタンを押してください
+            <table>
+                <thead>
                 <tr>
-                    <th nowrap="nowrap">ユーザー名</th>
-                    <th nowrap="nowrap">録音日時</th>
-                    <th nowrap="nowrap">音声ファイル</th>
-                    <th nowrap="nowrap">文字データ</th>
-                    <th nowrap="nowrap">操作</th>
+                    <th>選択</th>
+                    <th>ユーザー名</th>
+                    <th>録音日</th>
+                    <th>文字起こし</th>
                 </tr>
-            </thead>
-            <tbody>
-                {% for recording in recordings %}
+                </thead>
+                <tbody>
+                {% for rec in recordings %}
                 <tr>
-                    <td nowrap="nowrap">{{ recording.display_name }}</td>
-                    <td nowrap="nowrap">{{ recording.recorded_at | datetime }}</td>
-                    <td nowrap="nowrap">
-                        <audio controls>
-                            <source src="/recordings/{{ recording.filename }}" type="audio/mpeg">
-                            ブラウザがaudio要素をサポートしていません。
-                        </audio>
-                    </td>
-                    <td id="transcription-{{ loop.index }}" class="transcription">{{ recording.transcription }}</td>
-                    <td nowrap="nowrap">
-                        <button onclick="copyToClipboard('transcription-{{ loop.index }}')">コピー</button><br/>
-                        <a href="/generate_facing_sheet/{{ recording.id }}" target="_blank">
-                            <button>フェースシート作成</button>
-                        </a>
-                    </td>
+                    <td><input type="checkbox" name="recording_ids" value="{{ rec.id }}"></td>
+                    <td>{{ rec.display_name }}</td>
+                    <td>{{ rec.recorded_at | datetime }}</td>
+                    <td>{{ rec.transcription }}</td>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+
+            <label>利用者名：</label>
+            <input type="text" name="user_name" required>
+            <label>作成者名：</label>
+            <input type="text" name="author_name" required>
+            <button type="submit">支援経過をまとめて作成</button>
+            対象を選択して「支援経過をまとめて作成」ボタンを押してください
+        </form>
+
     </div>
 </body>
 </html>

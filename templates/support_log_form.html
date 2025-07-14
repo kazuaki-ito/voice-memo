@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>支援経過作成</title>
+</head>
+<body>
+  <h1>支援経過 作成フォーム</h1>
+  <form method="post">
+    <label>利用者名：</label>
+    <input type="text" name="user_name" required><br><br>
+
+    <label>作成者氏名：</label>
+    <input type="text" name="author_name" required><br><br>
+
+    <label>録音日：</label>
+    <input type="text" value="{{ recording.recorded_at.strftime('%Y-%m-%d') }}" readonly><br><br>
+
+    <label>内容：</label><br>
+    <textarea rows="10" cols="80" readonly>{{ recording.transcription }}</textarea><br><br>
+
+    <button type="submit">支援経過を作成</button>
+  </form>
+  <br>
+  <a href="/list/">← 一覧へ戻る</a>
+</body>
+</html>
