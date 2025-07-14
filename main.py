@@ -122,6 +122,7 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
             data = {"model": "whisper-1"}
             response = requests.post(WHISPER_API_URL, headers=headers, files=files, data=data)
             if response.status_code != 200:
+                logger.error(f"Whisper API failed: {response.status_code} - {response.text}")
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="文字起こしに失敗しました。"))
                 return
             transcribed_text = response.json().get("text", "")
@@ -134,6 +135,7 @@ def handle_audio_message(event, db: Session = Depends(get_db)):
         }
         response = requests.post(CHATGPT_API_URL, headers=headers, json=data)
         if response.status_code != 200:
+            logger.error(f"Whisper API failed: {response.status_code} - {response.text}")
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="テキストの補正に失敗しました。"))
             return
         corrected_text = response.json()["choices"][0]["message"]["content"]
